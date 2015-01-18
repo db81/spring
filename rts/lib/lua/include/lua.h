@@ -46,6 +46,16 @@
 #define LUA_ERRMEM	4
 #define LUA_ERRERR	5
 
+#define PERFTOOLS_SYMBOLS // XXX
+#ifdef PERFTOOLS_SYMBOLS
+#include <unordered_map>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <sys/types.h>
+#include <unistd.h>
+#endif
+
 
 typedef struct lua_State lua_State;
 

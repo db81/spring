@@ -394,9 +394,37 @@ static void Arith (lua_State *L, StkId ra, const TValue *rb,
           Protect(Arith(L, ra, rb, rc, tm)); \
       }
 
-
-
+#ifdef PERFTOOLS_SYMBOLS
+static void __attribute__ ((noinline)) __luaV_execute (lua_State *L, int nexeccalls);
 void luaV_execute (lua_State *L, int nexeccalls) {
+  Proto *p = clvalue(L->ci->func)->l.p;
+  /* This is unlikely to ever work without basically reimplementing lua_getinfo().
+  if (isLua(L->ci - 1) && L->ci->tailcalls <= 0) {
+      CallInfo *__ci_caller = L->ci - 1;
+      Proto *__p_caller = ci_func(__ci_caller)->l.p;
+      int __i = pcRel(__ci_caller->savedpc, __p_caller);
+      switch (GET_OPCODE(__p_caller->code[__i])) {
+      case OP_CALL:
+      case OP_TAILCALL:
+      case OP_TFORLOOP:
+          funcName = luaF_getlocalname(__p_caller, GETARG_A(__p_caller->code[__i]) + 1, __i);
+      }
+  }*/
+  const char* source = getstr(p->source);
+  size_t len = strlen(source) + 10;
+  char sym[len];
+  snprintf(sym, len, "%s:%i", source, p->linedefined);
+  if (perftools_symmap.count(sym)) {
+  } else {
+    perftools_symmap[sym] = 0x0;
+  }
+  __luaV_execute(L, nexeccalls);
+}
+
+static void __attribute__ ((noinline)) __luaV_execute (lua_State *L, int nexeccalls) {
+#else
+void luaV_execute (lua_State *L, int nexeccalls) {
+#endif
   LClosure *cl;
   StkId base;
   TValue *k;

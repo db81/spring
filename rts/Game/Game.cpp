@@ -538,6 +538,15 @@ CGame::~CGame()
 
 	LOG("[%s][17]", __FUNCTION__);
 	LEAVE_SYNCED_CODE();
+
+#ifdef PERFTOOLS_SYMBOLS
+	std::ostringstream oss;
+	oss << "/tmp/perf-" << getpid() << ".map";
+	std::ofstream fo(oss.str(), std::ios::app);
+	for (auto it = perftools_symmap.begin(); it != perftools_symmap.end(); it++)
+		fo << it->first << std::endl;
+	fo.close();
+#endif
 }
 
 
