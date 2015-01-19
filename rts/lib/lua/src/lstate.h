@@ -173,9 +173,5 @@ union GCObject {
 LUAI_FUNC lua_State *luaE_newthread (lua_State *L);
 LUAI_FUNC void luaE_freethread (lua_State *L, lua_State *L1);
 
-#ifdef PERFTOOLS_SYMBOLS
-extern std::unordered_map<std::string, uintptr_t> perftools_symmap;
-#endif
-
 #endif
 

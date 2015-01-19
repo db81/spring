@@ -542,9 +542,17 @@ CGame::~CGame()
 #ifdef PERFTOOLS_SYMBOLS
 	std::ostringstream oss;
 	oss << "/tmp/perf-" << getpid() << ".map";
+    LOG_L(L_INFO, "Writing Lua symbol map to %s", oss.str().c_str());
 	std::ofstream fo(oss.str(), std::ios::app);
-	for (auto it = perftools_symmap.begin(); it != perftools_symmap.end(); it++)
-		fo << it->first << std::endl;
+	for (auto it = perftools_symmap.begin(); it != perftools_symmap.end(); it++) {
+        std::string sym = it->first;
+        for (auto c = sym.begin(); c != sym.end(); c++) {
+            if (*c == '\n' || *c == '\r' || *c == '\t')
+                *c = ' ';
+        }
+		fo << std::hex << (uintptr_t)(perftools_jit_mem + it->second * luaV_execute_jit_wrapper_size) <<
+            " " << luaV_execute_jit_wrapper_size << " " << sym << std::endl;
+    }
 	fo.close();
 #endif
 }

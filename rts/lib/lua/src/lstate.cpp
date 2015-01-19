@@ -37,10 +37,6 @@ typedef struct LG {
   global_State g;
 } LG;
 
-#ifdef PERFTOOLS_SYMBOLS
-std::unordered_map<std::string, uintptr_t> perftools_symmap;
-#endif
-
 
 static void stack_init (lua_State *L1, lua_State *L) {
   /* initialize CallInfo array */

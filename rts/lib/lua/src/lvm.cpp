@@ -394,34 +394,81 @@ static void Arith (lua_State *L, StkId ra, const TValue *rb,
           Protect(Arith(L, ra, rb, rc, tm)); \
       }
 
+
 #ifdef PERFTOOLS_SYMBOLS
-static void __attribute__ ((noinline)) __luaV_execute (lua_State *L, int nexeccalls);
+
+// TODO: mmap() extra pages dynamically.
+#define PERFTOOLS_MAX_SYMMAP_SIZE 10000
+std::unordered_map<std::string, uintptr_t> perftools_symmap;
+unsigned char* perftools_jit_mem = NULL;
+
+typedef void (*luaV_execute_ptr)(lua_State*, int);
+typedef void (*luaV_execute_jit_wrapper_ptr)(luaV_execute_ptr, void* p, int n);
+
+// We could of course implement the wrapper in pure C, but then we would have
+// no safe way to find out the size of the function.
+extern "C" { void luaV_execute_jit_wrapper(luaV_execute_ptr, void*, int); }
+#ifdef __x86_64__
+#error "PERFTOOLS_SYMBOLS not supported on x86_64 yet."
+#else
+asm (
+    ".text\n"
+"luaV_execute_jit_wrapper:\n\t"
+    "pushl   %ebp\n\t"
+    "movl    %esp, %ebp\n\t"
+
+    // Keep the stack aligned to 16 bytes.
+    // See http://stackoverflow.com/questions/1061818/stack-allocation-padding-and-alignment
+    "subl    $24, %esp\n\t"
+
+    "movl    16(%ebp), %eax\n\t"
+    "movl    %eax, 4(%esp)\n\t"
+
+    "movl    12(%ebp), %eax\n\t"
+    "movl    %eax, (%esp)\n\t"
+
+    "movl    8(%ebp), %eax\n\t"
+    "call    *%eax\n\t"
+
+    "movl    %ebp, %esp\n\t"
+    "popl    %ebp\n\t"
+    "ret"
+);
+const size_t luaV_execute_jit_wrapper_size = 28; // objdump -d doesn't lie
+#endif
+
+// A (questionable) trick to run the initialization code without extra help.
+struct perftools_symbols_init_struct {
+    perftools_symbols_init_struct() {
+        perftools_jit_mem = (unsigned char*)mmap(NULL, luaV_execute_jit_wrapper_size *
+            PERFTOOLS_MAX_SYMMAP_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        for (int i = 0; i < PERFTOOLS_MAX_SYMMAP_SIZE; i++) {
+            memcpy(perftools_jit_mem + i * luaV_execute_jit_wrapper_size,
+                (void*)&luaV_execute_jit_wrapper, luaV_execute_jit_wrapper_size);
+        }
+        mprotect(perftools_jit_mem, luaV_execute_jit_wrapper_size * PERFTOOLS_MAX_SYMMAP_SIZE,
+            PROT_READ | PROT_EXEC);
+    }
+} perftools_symbols_init;
+
+void __attribute__ ((noinline)) __luaV_execute (lua_State *L, int nexeccalls);
 void luaV_execute (lua_State *L, int nexeccalls) {
+  assert(perftools_jit_mem !== NULL);
   Proto *p = clvalue(L->ci->func)->l.p;
-  /* This is unlikely to ever work without basically reimplementing lua_getinfo().
-  if (isLua(L->ci - 1) && L->ci->tailcalls <= 0) {
-      CallInfo *__ci_caller = L->ci - 1;
-      Proto *__p_caller = ci_func(__ci_caller)->l.p;
-      int __i = pcRel(__ci_caller->savedpc, __p_caller);
-      switch (GET_OPCODE(__p_caller->code[__i])) {
-      case OP_CALL:
-      case OP_TAILCALL:
-      case OP_TFORLOOP:
-          funcName = luaF_getlocalname(__p_caller, GETARG_A(__p_caller->code[__i]) + 1, __i);
-      }
-  }*/
   const char* source = getstr(p->source);
   size_t len = strlen(source) + 10;
   char sym[len];
   snprintf(sym, len, "%s:%i", source, p->linedefined);
-  if (perftools_symmap.count(sym)) {
-  } else {
-    perftools_symmap[sym] = 0x0;
+  if (!perftools_symmap.count(sym)) {
+    assert(perftools_symmap.size() <= PERFTOOLS_MAX_SYMMAP_SIZE);
+    perftools_symmap[sym] = perftools_symmap.size() + 1;
   }
-  __luaV_execute(L, nexeccalls);
+  luaV_execute_jit_wrapper_ptr wrapper = (luaV_execute_jit_wrapper_ptr)(perftools_jit_mem +
+    perftools_symmap[sym] * luaV_execute_jit_wrapper_size);
+  wrapper(&__luaV_execute, L, nexeccalls);
 }
 
-static void __attribute__ ((noinline)) __luaV_execute (lua_State *L, int nexeccalls) {
+void __attribute__ ((noinline)) __luaV_execute (lua_State *L, int nexeccalls) {
 #else
 void luaV_execute (lua_State *L, int nexeccalls) {
 #endif

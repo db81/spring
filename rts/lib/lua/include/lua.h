@@ -48,12 +48,25 @@
 
 #define PERFTOOLS_SYMBOLS // XXX
 #ifdef PERFTOOLS_SYMBOLS
+#if defined(__GNUC__)
+
 #include <unordered_map>
 #include <string>
 #include <fstream>
 #include <sstream>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/mman.h>
+#include <assert.h>
+
+extern std::unordered_map<std::string, uintptr_t> perftools_symmap;
+extern unsigned char* perftools_jit_mem;
+extern const size_t luaV_execute_jit_wrapper_size;
+
+#else
+#warning "PERFTOOLS_SYMBOLS require GCC to work."
+#undef PERFTOOLS_SYMBOLS
+#endif
 #endif
 
 
