@@ -687,7 +687,11 @@ void luaV_execute (lua_State *L, int nexeccalls) {
         L->savedpc = pc;
         switch (luaD_precall(L, ra, nresults)) {
           case PCRLUA: {
+#if defined(PERFTOOLS_SYMBOLS) && defined(PERFTOOLS_SYMBOLS_UNWRAP_CALLCHAIN)
+            luaV_execute(L, nexeccalls + 1);
+#else
             nexeccalls++;
+#endif
             goto reentry;  /* restart luaV_execute over new Lua function */
           }
           case PCRC: {
@@ -745,7 +749,11 @@ void luaV_execute (lua_State *L, int nexeccalls) {
           if (b) L->top = L->ci->top;
           lua_assert(isLua(L->ci));
           lua_assert(GET_OPCODE(*((L->ci)->savedpc - 1)) == OP_CALL);
+#if defined(PERFTOOLS_SYMBOLS) && defined(PERFTOOLS_SYMBOLS_UNWRAP_CALLCHAIN)
+          return;
+#else
           goto reentry;
+#endif
         }
       }
       case OP_FORLOOP: {

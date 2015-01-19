@@ -46,7 +46,6 @@
 #define LUA_ERRMEM	4
 #define LUA_ERRERR	5
 
-#define PERFTOOLS_SYMBOLS // XXX
 #ifdef PERFTOOLS_SYMBOLS
 #if defined(__GNUC__)
 
