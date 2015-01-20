@@ -719,7 +719,15 @@ void luaV_execute (lua_State *L, int nexeccalls) {
         switch (luaD_precall(L, ra, nresults)) {
           case PCRLUA: {
 #if defined(PERFTOOLS_SYMBOLS) && defined(PERFTOOLS_SYMBOLS_UNWRAP_CALLCHAIN)
-            luaV_execute(L, nexeccalls + 1);
+            // Resuming coroutines can set nexeccalls to > 1, but we need it to count
+            // the real call stack depth. The ultimate solution, of course, is to store
+            // two variables in one.
+            luaV_execute(L, nexeccalls + 1 + (1 << 16));
+            if (L->status & (1 << 7)) { // yielding
+                if (!(nexeccalls & 0xffff0000))
+                    L->status &= ~(1 << 7);
+                return;
+            }
 #else
             nexeccalls++;
 #endif
@@ -732,6 +740,10 @@ void luaV_execute (lua_State *L, int nexeccalls) {
             continue;
           }
           default: {
+#if defined(PERFTOOLS_SYMBOLS) && defined(PERFTOOLS_SYMBOLS_UNWRAP_CALLCHAIN)
+            if (nexeccalls & 0xffff0000)
+                L->status |= (1 << 7);
+#endif
             return;  /* yield */
           }
         }
@@ -764,6 +776,10 @@ void luaV_execute (lua_State *L, int nexeccalls) {
             continue;
           }
           default: {
+#if defined(PERFTOOLS_SYMBOLS) && defined(PERFTOOLS_SYMBOLS_UNWRAP_CALLCHAIN)
+            if (nexeccalls & 0xffff0000)
+                L->status |= (1 << 7);
+#endif
             return;  /* yield */
           }
         }
@@ -781,10 +797,10 @@ void luaV_execute (lua_State *L, int nexeccalls) {
           lua_assert(isLua(L->ci));
           lua_assert(GET_OPCODE(*((L->ci)->savedpc - 1)) == OP_CALL);
 #if defined(PERFTOOLS_SYMBOLS) && defined(PERFTOOLS_SYMBOLS_UNWRAP_CALLCHAIN)
-          return;
-#else
-          goto reentry;
+          if (nexeccalls & 0xffff0000)
+            return;
 #endif
+          goto reentry;
         }
       }
       case OP_FORLOOP: {
