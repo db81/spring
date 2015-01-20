@@ -409,7 +409,28 @@ typedef void (*luaV_execute_jit_wrapper_ptr)(luaV_execute_ptr, void* p, int n);
 // no safe way to find out the size of the function.
 extern "C" { void luaV_execute_jit_wrapper(luaV_execute_ptr, void*, int); }
 #ifdef __x86_64__
-#error "PERFTOOLS_SYMBOLS not supported on x86_64 yet."
+asm (
+    ".text\n"
+"caller:\n\t"
+    "pushq   %rbp\n\t"
+    "movq    %rsp, %rbp\n\t"
+
+    // Stack is already aligned to 16 bytes.
+
+    // Save function pointer.
+    "movq    %rdi, %rax\n\t"
+    // Pass the void* argument.
+    "movq    %rsi, %rdi\n\t"
+    // Pass the int argument.
+    "movl    %edx, %esi\n\t"
+
+    "call    *%rax\n\t"
+
+    "movq    %rbp, %rsp\n\t"
+    "popq    %rbp\n\t"
+    "ret"
+);
+const size_t luaV_execute_jit_wrapper_size = 19; // objdump -d doesn't lie
 #else
 asm (
     ".text\n"
