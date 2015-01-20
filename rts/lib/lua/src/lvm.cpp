@@ -397,6 +397,16 @@ static void Arith (lua_State *L, StkId ra, const TValue *rb,
 
 #ifdef PERFTOOLS_SYMBOLS
 
+// We shadow luaV_execute() and implement a nano-JIT function that inserts an
+// actual stack frame and calls the real luaV_execute(). In order to allow the
+// JIT interface to tell one Lua function from another we have to maintain a
+// buffer of executable memory filled with copies of our frame inserter function,
+// together with a mapping from Lua functions to the index in the buffer.
+//
+// On shutdown we output the map into /tmp/perf-<PID>.map (that's currently in
+// CGame::~Cgame(), perhaps should be moved here?) and that allows the JIT
+// interface to recognize Lua functions when walking up the stack.
+
 // TODO: mmap() extra pages dynamically.
 #define PERFTOOLS_MAX_SYMMAP_SIZE 10000
 std::unordered_map<std::string, uintptr_t> perftools_symmap;
@@ -438,9 +448,9 @@ asm (
     "pushl   %ebp\n\t"
     "movl    %esp, %ebp\n\t"
 
-    // Keep the stack aligned to 16 bytes.
+    // Keep the stack aligned to 16 bytes for GCC.
     // See http://stackoverflow.com/questions/1061818/stack-allocation-padding-and-alignment
-    "subl    $24, %esp\n\t"
+    "subl    $8, %esp\n\t"
 
     "movl    16(%ebp), %eax\n\t"
     "movl    %eax, 4(%esp)\n\t"
@@ -455,7 +465,7 @@ asm (
     "popl    %ebp\n\t"
     "ret"
 );
-const size_t luaV_execute_jit_wrapper_size = 28; // objdump -d doesn't lie
+const size_t luaV_execute_jit_wrapper_size = 28; // objdump -d still doesn't lie
 #endif
 
 // A (questionable) trick to run the initialization code without extra help.

@@ -38,6 +38,7 @@ typedef struct LG {
 } LG;
 
 
+
 static void stack_init (lua_State *L1, lua_State *L) {
   /* initialize CallInfo array */
   L1->base_ci = luaM_newvector(L, BASIC_CI_SIZE, CallInfo);

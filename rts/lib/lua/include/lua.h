@@ -46,6 +46,20 @@
 #define LUA_ERRMEM	4
 #define LUA_ERRERR	5
 
+// This enables /tmp/perf-<PID>.map output that can be used by Linux perf_tools
+// profiler to unwind Lua call stack. This allows you to see the actual Lua
+// code instead of anonymous lua_pcall, luaD_rawrunprotected, luaV_execute, etc.
+//
+// To make use of this, compile Spring with -DPERFTOOLS_SYMBOLS (and
+// -DPERFTOOLS_SYMBOLS_UNWRAP_CALLCHAIN if you want to see the entire Lua call
+// stack and don't mind a performance penalty).
+// After that you can use perf record as usual and perf report or perf script
+// will show you what Lua code was executed!
+//
+// For an explanation of how this works, look in lua/src/lvm.cpp.
+//
+// At the moment it only supports perf_tools, but it can conceivably be
+// extended to support any profiler/debugger with a JIT interface.
 #ifdef PERFTOOLS_SYMBOLS
 #if defined(__GNUC__)
 
@@ -63,7 +77,7 @@ extern unsigned char* perftools_jit_mem;
 extern const size_t luaV_execute_jit_wrapper_size;
 
 #else
-#warning "PERFTOOLS_SYMBOLS require GCC to work."
+#warning "PERFTOOLS_SYMBOLS requires GCC to work."
 #undef PERFTOOLS_SYMBOLS
 #endif
 #endif
