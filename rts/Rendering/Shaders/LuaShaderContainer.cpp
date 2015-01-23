@@ -103,7 +103,9 @@ static void CompileObject(
 	if (sources.empty())
 		return;
 
-	program->AttachShaderObject(shaderHandler->CreateShaderObject(sources, definitions, type));
+	Shader::IShaderObject* shader = shaderHandler->CreateShaderObject(sources, definitions, type);
+	shader->Compile(false);
+	program->AttachShaderObject(shader);
 }
 
 
