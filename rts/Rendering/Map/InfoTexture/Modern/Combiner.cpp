@@ -115,7 +115,7 @@ void CInfoTextureCombiner::Update()
 	fbo.Bind();
 	glViewport(0,0, texSize.x, texSize.y);
 	glEnable(GL_BLEND);
-
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	shader->BindTextures();
 	shader->SetUniform("time", float(gs->frameNum + globalRendering->timeOffset));
 
